@@ -1,0 +1,465 @@
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'verification_screen.dart';
+import 'sign_in_screen.dart';
+import 'language_selection_screen.dart';
+
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final TextEditingController _phoneController = TextEditingController();
+
+  @override
+  void dispose() {
+    _phoneController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF00D973),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Stack(
+            children: [
+              Column(
+                children: [
+                  _buildGreenHeader(),
+                  _buildLoginCard(),
+                ],
+              ),
+              // Positioned image overlapping both sections
+              Positioned(
+                top: 100, // Positioned to overlap green header and white card
+                right: 0,
+                child: Image.asset(
+                  'assets/Signin/keellslogov1 1.png',
+                  height: 200,
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ==========================
+  // GREEN HEADER
+  // ==========================
+  Widget _buildGreenHeader() {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFF00BF63),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(30),
+          bottomRight: Radius.circular(30),
+        ),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -50,
+            right: -50,
+            child: Container(
+              width: 200,
+              height: 200,
+              decoration: BoxDecoration(
+                color: const Color(0xFF00D973).withOpacity(0.3),
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                GestureDetector(
+                  onTap: () {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (context) => const LanguageSelectionScreen()),
+                    );
+                  },
+                  child: Row(
+                    children: [
+                      const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        "Back",
+                        style: GoogleFonts.instrumentSans(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      )
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 15),
+
+                Text(
+                  "Hello",
+                  style: GoogleFonts.instrumentSans(
+                    color: Colors.white,
+                    fontSize: 48,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+
+                const SizedBox(height: 6),
+
+                Text(
+                  "Fresh Finds, Every Day.",
+                  style: GoogleFonts.instrumentSans(
+                    color: Colors.white,
+                    fontSize: 18,
+                  ),
+                ),
+
+                const SizedBox(height: 15),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==========================
+  // LOGIN CARD
+  // ==========================
+  Widget _buildLoginCard() {
+    return Transform.translate(
+      offset: const Offset(0, -5),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 20),
+        padding: const EdgeInsets.only(top: 30, left: 24, right: 24, bottom: 24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(30),
+            topRight: Radius.circular(30),
+            bottomLeft: Radius.circular(24),
+            bottomRight: Radius.circular(24),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.1),
+              blurRadius: 20,
+              offset: const Offset(0, -5),
+            ),
+          ],
+        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "Login",
+            style: GoogleFonts.instrumentSans(
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          Text(
+            "Enter your Phone Number",
+            style: GoogleFonts.instrumentSans(
+              fontSize: 16,
+              color: Colors.grey.shade600,
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          _buildPhoneInput(),
+
+          const SizedBox(height: 24),
+
+          _buildSendOTPButton(),
+
+          const SizedBox(height: 24),
+
+          _buildDivider(),
+
+          const SizedBox(height: 24),
+
+          _buildSocialLogin(),
+
+          const SizedBox(height: 24),
+
+          _buildRewardsSection(),
+
+          const SizedBox(height: 16),
+
+          _buildSignUpLink(),
+        ],
+      ),
+      ),
+    );
+  }
+
+  // ==========================
+  // PHONE INPUT
+  // ==========================
+  Widget _buildPhoneInput() {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                bottomLeft: Radius.circular(12),
+              ),
+            ),
+            child: Row(
+              children: [
+                const Text("🇱🇰", style: TextStyle(fontSize: 20)),
+                const SizedBox(width: 8),
+                Text(
+                  "+94",
+                  style: GoogleFonts.instrumentSans(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Icon(Icons.arrow_drop_down, color: Colors.grey.shade600)
+              ],
+            ),
+          ),
+
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: TextField(
+                controller: _phoneController,
+                keyboardType: TextInputType.phone,
+                decoration: InputDecoration(
+                  hintText: "Phone Number",
+                  border: InputBorder.none,
+                  hintStyle: GoogleFonts.instrumentSans(
+                    color: Colors.grey.shade400,
+                  ),
+                ),
+              ),
+            ),
+          )
+        ],
+      ),
+    );
+  }
+
+  // ==========================
+  // SEND OTP BUTTON
+  // ==========================
+  Widget _buildSendOTPButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const VerificationScreen()),
+          );
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF00BF63),
+          padding: const EdgeInsets.symmetric(vertical: 18),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        child: Text(
+          "Send OTP",
+          style: GoogleFonts.instrumentSans(
+            fontSize: 16,
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ==========================
+  // DIVIDER
+  // ==========================
+  Widget _buildDivider() {
+    return Row(
+      children: [
+        Expanded(child: Divider(color: Colors.grey.shade300)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            "or",
+            style: GoogleFonts.instrumentSans(fontSize: 14),
+          ),
+        ),
+        Expanded(child: Divider(color: Colors.grey.shade300)),
+      ],
+    );
+  }
+
+  // ==========================
+  // SOCIAL LOGIN
+  // ==========================
+  Widget _buildSocialLogin() {
+    return Row(
+      children: [
+        Expanded(
+          child: _socialBtn(icon: "G", label: "Google", isGoogle: true),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _socialBtn(icon: Icons.fingerprint, label: "Biometrics", isGoogle: false),
+        ),
+      ],
+    );
+  }
+
+  Widget _socialBtn({required dynamic icon, required String label, required bool isGoogle}) {
+    return OutlinedButton(
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        side: BorderSide(color: Colors.grey.shade300),
+      ),
+      onPressed: () {},
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          isGoogle
+              ? Text(icon, style: GoogleFonts.instrumentSans(fontSize: 18, fontWeight: FontWeight.bold))
+              : Icon(icon, size: 20),
+          const SizedBox(width: 8),
+          Text(label, style: GoogleFonts.instrumentSans(fontSize: 16)),
+        ],
+      ),
+    );
+  }
+
+  // ==========================
+  // REWARDS BOX
+  // ==========================
+  Widget _buildRewardsSection() {
+    return Container(
+      height: 130,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0x14000000), // Black with 8% opacity (0.08 * 255 ≈ 20)
+            offset: const Offset(0, 0),
+            blurRadius: 8,
+            spreadRadius: 0,
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        children: [
+          // Left side content
+          Positioned(
+            left: 16,
+            top: 0,
+            bottom: 0,
+            right: 100,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  "Unlock Rewards",
+                  style: GoogleFonts.instrumentSans(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "Where Loyalty is Rewarded. Stay up for amazing savings ahead",
+                  style: GoogleFonts.instrumentSans(fontSize: 12),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  "View More",
+                  style: GoogleFonts.instrumentSans(
+                    color: const Color(0xFF00BF63),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Box image on the right - positioned like promotional banner
+          Positioned(
+            right: -20,
+            top: 0,
+            bottom: -20,
+            child: Image.asset(
+              'assets/Signin/Box.png',
+              width: 120,
+              height: 140,
+              fit: BoxFit.contain,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==========================
+  // SIGN UP LINK
+  // ==========================
+  Widget _buildSignUpLink() {
+    return Center(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            "Don't have an account? ",
+            style: GoogleFonts.instrumentSans(fontSize: 14),
+          ),
+          GestureDetector(
+            onTap: () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const SignInScreen()));
+            },
+            child: Text(
+              "Sign Up",
+              style: GoogleFonts.instrumentSans(
+                fontSize: 14,
+                color: const Color(0xFF00BF63),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          )
+        ],
+      ),
+    );
+  }
+}
