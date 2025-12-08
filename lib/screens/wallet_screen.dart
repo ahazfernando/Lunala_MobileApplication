@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import 'payment_success_screen.dart';
 import 'home_screen.dart';
+import 'schedule_screen.dart';
 
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
@@ -15,6 +17,9 @@ class _WalletScreenState extends State<WalletScreen> {
   String _selectedDelivery = 'Express';
   bool _useLoyaltyPoints = false;
   int _currentIndex = 0;
+  DateTime? _scheduledDate;
+  String? _scheduledTimeSlot;
+  String? _deliveryNote;
 
   @override
   Widget build(BuildContext context) {
@@ -441,12 +446,24 @@ class _WalletScreenState extends State<WalletScreen> {
               child: _buildDeliveryOption(
                 'Schedule',
                 Icons.calendar_today,
-                'Choose when and what time to deliver',
+                _scheduledDate != null && _scheduledTimeSlot != null
+                    ? '${DateFormat('MMM d').format(_scheduledDate!)} at $_scheduledTimeSlot'
+                    : 'Choose when and what time to deliver',
                 _selectedDelivery == 'Schedule',
-                () {
-                  setState(() {
-                    _selectedDelivery = 'Schedule';
-                  });
+                () async {
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const ScheduleScreen()),
+                  );
+                  
+                  if (result != null) {
+                    setState(() {
+                      _selectedDelivery = 'Schedule';
+                      _scheduledDate = result['date'] as DateTime?;
+                      _scheduledTimeSlot = result['timeSlot'] as String?;
+                      _deliveryNote = result['note'] as String?;
+                    });
+                  }
                 },
               ),
             ),

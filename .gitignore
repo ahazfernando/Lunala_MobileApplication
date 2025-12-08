@@ -45,5 +45,11 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Firebase configuration files (keep local copies, don't commit)
+**/google-services.json
+**/GoogleService-Info.plist
+**/firebase_options.dart
+**/serviceAccountKey.json
+
 
 
