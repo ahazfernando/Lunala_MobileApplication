@@ -1,9 +1,21 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+// Firebase is currently disabled - uncomment below to re-enable
+// import 'package:cloud_firestore/cloud_firestore.dart';
+// import 'package:firebase_auth/firebase_auth.dart';
 
 /// Firebase Service for database operations
 /// This service provides methods to interact with Firestore database
+/// 
+/// DISABLED: Firebase is not currently in use.
+/// To re-enable:
+/// 1. Uncomment the imports above
+/// 2. Add Firebase dependencies back to pubspec.yaml
+/// 3. Initialize Firebase in main.dart
+/// 4. Uncomment the implementation below
 class FirebaseService {
+  // Firebase is disabled - this is a stub class
+  // Uncomment the code below and restore imports to re-enable Firebase
+  
+  /*
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
@@ -358,6 +370,5 @@ class FirebaseService {
       return false;
     }
   }
+  */
 }
-
-
