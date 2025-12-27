@@ -830,3 +830,4 @@ class _PurchaseHistoryScreenState extends State<PurchaseHistoryScreen> {
     );
   }
 }
+
