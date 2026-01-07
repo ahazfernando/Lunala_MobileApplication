@@ -8,7 +8,6 @@ import 'package:flutter/material.dart';
 import '../services/firebase_service.dart';
 import '../models/product_model.dart';
 import '../models/order_model.dart';
-import '../models/cart_item_model.dart';
 
 class FirebaseUsageExample extends StatefulWidget {
   const FirebaseUsageExample({super.key});

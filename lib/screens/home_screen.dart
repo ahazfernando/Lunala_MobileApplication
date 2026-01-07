@@ -131,6 +131,12 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       color: Colors.white,
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            _currentIndex = 1; // Navigate to search screen
+          });
+        },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
@@ -143,41 +149,25 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         child: Row(
           children: [
-            Icon(Icons.search, color: const Color(0xFF090909), size: 20),
-            const SizedBox(width: 12),
-            Expanded(
-              child: TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: 'Search for fruits, vegetables, dishes...',
-                  hintStyle: GoogleFonts.instrumentSans(
+              Icon(Icons.search, color: const Color(0xFF090909), size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Search for fruits, vegetables, dishes...',
+                  style: GoogleFonts.instrumentSans(
                     fontSize: 14,
-                    color: const Color(0xFF090909),
+                    color: const Color(0xFF090909).withOpacity(0.5),
                   ),
-                  border: InputBorder.none,
-                  isDense: true,
-                  contentPadding: EdgeInsets.zero,
                 ),
-                style: GoogleFonts.instrumentSans(
-                  fontSize: 14,
-                  color: const Color(0xFF090909),
-                ),
-                onSubmitted: (value) {
-                  // Handle search functionality
-                  // You can add search logic here
-                },
               ),
-            ),
-            Icon(Icons.tune, color: const Color(0xFF090909), size: 20),
+              Icon(Icons.tune, color: const Color(0xFF090909), size: 20),
           ],
+          ),
         ),
       ),
     );
   }
 
-  // ==========================
-  // PROMOTIONAL BANNER
-  // ==========================
   Widget _buildPromotionalBanner() {
     return Container(
       margin: const EdgeInsets.all(20),
@@ -189,8 +179,6 @@ class _HomeScreenState extends State<HomeScreen> {
       clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
-          // Background pattern overlay (optional - can add if needed)
-          // Left side content
           Positioned(
             left: 20,
             top: 0,
@@ -932,20 +920,253 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // ==========================
-  // PLACEHOLDER SCREENS
+  // SEARCH SCREEN
   // ==========================
   Widget _buildSearchScreen() {
-    return Center(
+    return Scaffold(
+      backgroundColor: Colors.grey.shade50,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          onPressed: () {
+            setState(() {
+              _currentIndex = 0;
+            });
+          },
+        ),
+        title: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF9FAFB),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: const Color(0xFFE5E7EB),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.search, color: const Color(0xFF090909), size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  controller: _searchController,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    hintText: 'Search for fruits, vegetables, dishes...',
+                    hintStyle: GoogleFonts.instrumentSans(
+                      fontSize: 14,
+                      color: const Color(0xFF090909).withOpacity(0.5),
+                    ),
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  style: GoogleFonts.instrumentSans(
+                    fontSize: 14,
+                    color: const Color(0xFF090909),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Quick Actions Section
+              _buildQuickActionsSection(),
+              const SizedBox(height: 24),
+              // Recent Searches (if any)
+              _buildRecentSearches(),
+              const SizedBox(height: 24),
+              // Search Results or Empty State
+              _buildSearchResults(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickActionsSection() {
+    return Container(
+      margin: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF2F5BFF),
+            Color(0xFF1E3FCC),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF2F5BFF).withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Quick Actions',
+            style: GoogleFonts.inter(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Start typing to search for products...',
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              color: Colors.white.withOpacity(0.9),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecentSearches() {
+    // Mock recent searches - replace with actual data
+    final recentSearches = ['Strawberry', 'Salad', 'Fruits'];
+    
+    if (recentSearches.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Recent Searches',
+            style: GoogleFonts.inter(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: recentSearches.map((search) {
+              return InkWell(
+                onTap: () {
+                  _searchController.text = search;
+                  // Trigger search
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: Colors.grey.shade200,
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.history,
+                        size: 16,
+                        color: Colors.grey.shade600,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        search,
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchResults() {
+    final hasSearchQuery = _searchController.text.isNotEmpty;
+    
+    if (!hasSearchQuery) {
+      return Padding(
+        padding: const EdgeInsets.all(20),
+        child: Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.search, size: 64, color: Colors.grey.shade400),
+              Icon(
+                Icons.search_outlined,
+                size: 64,
+                color: Colors.grey.shade400,
+              ),
           const SizedBox(height: 16),
           Text(
-            'Search',
-            style: GoogleFonts.instrumentSans(
-              fontSize: 24,
+                'Start searching...',
+                style: GoogleFonts.inter(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Search for products, or use quick actions above',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  color: Colors.grey.shade500,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // TODO: Implement actual search results
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Search Results',
+            style: GoogleFonts.inter(
+              fontSize: 18,
               fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No results found for "${_searchController.text}"',
+            style: GoogleFonts.inter(
+              fontSize: 14,
               color: Colors.grey.shade600,
             ),
           ),

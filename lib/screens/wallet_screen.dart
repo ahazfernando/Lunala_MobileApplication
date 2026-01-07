@@ -746,9 +746,7 @@ class _WalletScreenState extends State<WalletScreen> {
         ],
       ),
     );
-  }
-
-  Widget _buildCenterButton() {
+  }  Widget _buildCenterButton() {
     return GestureDetector(
       onTap: () {
         setState(() {

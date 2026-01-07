@@ -580,9 +580,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         ],
       ),
     );
-  }
-
-  Widget _buildCenterButton() {
+  }  Widget _buildCenterButton() {
     return GestureDetector(
       onTap: () {
         setState(() {

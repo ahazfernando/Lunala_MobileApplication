@@ -1,21 +1,9 @@
-// Firebase is currently disabled - uncomment below to re-enable
-// import 'package:cloud_firestore/cloud_firestore.dart';
-// import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 /// Firebase Service for database operations
 /// This service provides methods to interact with Firestore database
-/// 
-/// DISABLED: Firebase is not currently in use.
-/// To re-enable:
-/// 1. Uncomment the imports above
-/// 2. Add Firebase dependencies back to pubspec.yaml
-/// 3. Initialize Firebase in main.dart
-/// 4. Uncomment the implementation below
 class FirebaseService {
-  // Firebase is disabled - this is a stub class
-  // Uncomment the code below and restore imports to re-enable Firebase
-  
-  /*
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
@@ -26,7 +14,232 @@ class FirebaseService {
   /// Get current user
   User? get currentUser => _auth.currentUser;
 
-  /// Sign in with phone number
+  /// Normalize phone number to extract just digits (removes +94, spaces, etc.)
+  String _normalizePhoneNumber(String phoneNumber) {
+    // Remove all non-digit characters
+    return phoneNumber.replaceAll(RegExp(r'[^\d]'), '');
+  }
+
+  /// Extract phone number without country code (removes +94 prefix)
+  String _extractPhoneNumberWithoutCountryCode(String phoneNumber) {
+    final normalized = _normalizePhoneNumber(phoneNumber);
+    // If it starts with 94, remove it (Sri Lanka country code)
+    if (normalized.startsWith('94') && normalized.length > 9) {
+      return normalized.substring(2);
+    }
+    return normalized;
+  }
+
+  /// Check if user exists in Firestore by phone number
+  /// Handles both 'customers' collection and phone numbers stored as numbers or strings
+  Future<bool> userExistsByPhoneNumber(String phoneNumber) async {
+    try {
+      // Normalize phone number - extract just digits without country code
+      final normalizedPhone = _extractPhoneNumberWithoutCountryCode(phoneNumber);
+      print('Checking user existence - Original: $phoneNumber, Normalized: $normalizedPhone');
+      
+      // Try querying as number first (since Firebase stores it as number)
+      final phoneNumberAsInt = int.tryParse(normalizedPhone);
+      
+      if (phoneNumberAsInt != null) {
+        print('Querying customers collection with phone number as int: $phoneNumberAsInt');
+        // Query in 'customers' collection with number type
+        final querySnapshotNumber = await _firestore
+            .collection('customers')
+            .where('phoneNumber', isEqualTo: phoneNumberAsInt)
+            .limit(1)
+            .get();
+        
+        if (querySnapshotNumber.docs.isNotEmpty) {
+          print('User found in customers collection (as number)');
+          return true;
+        }
+        
+        // Also try as string in case some records are stored as strings
+        print('Querying customers collection with phone number as string: $normalizedPhone');
+        final querySnapshotString = await _firestore
+            .collection('customers')
+            .where('phoneNumber', isEqualTo: normalizedPhone)
+            .limit(1)
+            .get();
+        
+        if (querySnapshotString.docs.isNotEmpty) {
+          print('User found in customers collection (as string)');
+          return true;
+        }
+      }
+      
+      // Fallback: try in 'users' collection (for newly created users)
+      print('Querying users collection with original phone number: $phoneNumber');
+      final querySnapshotUsers = await _firestore
+          .collection('users')
+          .where('phoneNumber', isEqualTo: phoneNumber)
+          .limit(1)
+          .get();
+      
+      if (querySnapshotUsers.docs.isNotEmpty) {
+        print('User found in users collection');
+        return true;
+      }
+      
+      print('User not found in any collection');
+      return false;
+    } catch (e) {
+      print('Error checking if user exists: $e');
+      return false;
+    }
+  }
+
+  /// Get user by phone number
+  /// Handles both 'customers' collection and phone numbers stored as numbers or strings
+  Future<Map<String, dynamic>?> getUserByPhoneNumber(String phoneNumber) async {
+    try {
+      // Normalize phone number - extract just digits without country code
+      final normalizedPhone = _extractPhoneNumberWithoutCountryCode(phoneNumber);
+      
+      // Try querying as number first (since Firebase stores it as number)
+      final phoneNumberAsInt = int.tryParse(normalizedPhone);
+      
+      if (phoneNumberAsInt != null) {
+        // Query in 'customers' collection with number type
+        final querySnapshotNumber = await _firestore
+            .collection('customers')
+            .where('phoneNumber', isEqualTo: phoneNumberAsInt)
+            .limit(1)
+            .get();
+        
+        if (querySnapshotNumber.docs.isNotEmpty) {
+          final doc = querySnapshotNumber.docs.first;
+          return {'id': doc.id, ...doc.data()};
+        }
+        
+        // Also try as string in case some records are stored as strings
+        final querySnapshotString = await _firestore
+            .collection('customers')
+            .where('phoneNumber', isEqualTo: normalizedPhone)
+            .limit(1)
+            .get();
+        
+        if (querySnapshotString.docs.isNotEmpty) {
+          final doc = querySnapshotString.docs.first;
+          return {'id': doc.id, ...doc.data()};
+        }
+      }
+      
+      // Fallback: try in 'users' collection (for newly created users)
+      final querySnapshotUsers = await _firestore
+          .collection('users')
+          .where('phoneNumber', isEqualTo: phoneNumber)
+          .limit(1)
+          .get();
+      
+      if (querySnapshotUsers.docs.isNotEmpty) {
+        final doc = querySnapshotUsers.docs.first;
+        return {'id': doc.id, ...doc.data()};
+      }
+      
+      return null;
+    } catch (e) {
+      print('Error getting user by phone number: $e');
+      return null;
+    }
+  }
+
+  /// Create a new user in Firestore
+  Future<String?> createUser({
+    required String phoneNumber,
+    String? firstName,
+    String? lastName,
+    String? email,
+  }) async {
+    try {
+      final userData = {
+        'phoneNumber': phoneNumber,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+      
+      if (firstName != null && firstName.isNotEmpty) {
+        userData['firstName'] = firstName;
+      }
+      if (lastName != null && lastName.isNotEmpty) {
+        userData['lastName'] = lastName;
+      }
+      if (email != null && email.isNotEmpty) {
+        userData['email'] = email;
+      }
+
+      final docRef = await _firestore.collection('users').add(userData);
+      return docRef.id;
+    } catch (e) {
+      print('Error creating user: $e');
+      return null;
+    }
+  }
+
+  /// Send OTP (for now, we'll use hardcoded 1234)
+  /// In production, this would trigger Firebase Phone Auth
+  Future<bool> sendOTP(String phoneNumber) async {
+    try {
+      // For development: hardcoded OTP is 1234
+      // In production, you would use:
+      // await _auth.verifyPhoneNumber(
+      //   phoneNumber: phoneNumber,
+      //   verificationCompleted: (PhoneAuthCredential credential) {},
+      //   verificationFailed: (FirebaseAuthException e) {},
+      //   codeSent: (String verificationId, int? resendToken) {},
+      //   codeAutoRetrievalTimeout: (String verificationId) {},
+      // );
+      return true;
+    } catch (e) {
+      print('Error sending OTP: $e');
+      return false;
+    }
+  }
+
+  /// Verify OTP and authenticate user
+  /// For now, accepts hardcoded OTP "1234"
+  Future<bool> verifyOTPAndAuthenticate({
+    required String phoneNumber,
+    required String otp,
+  }) async {
+    try {
+      // For development: hardcoded OTP is 1234
+      if (otp != '1234') {
+        return false;
+      }
+
+      // Check if user exists in Firestore
+      final userExists = await userExistsByPhoneNumber(phoneNumber);
+      
+      if (!userExists) {
+        // User doesn't exist, cannot login
+        return false;
+      }
+
+      // Get user data from Firestore
+      final userData = await getUserByPhoneNumber(phoneNumber);
+      if (userData == null) {
+        return false;
+      }
+
+      // In production, you would use Firebase Auth:
+      // final credential = PhoneAuthProvider.credential(
+      //   verificationId: verificationId,
+      //   smsCode: otp,
+      // );
+      // await _auth.signInWithCredential(credential);
+      
+      // For now, we'll create a custom token or use anonymous auth
+      // Since we're using hardcoded OTP, we'll just verify the user exists
+      return true;
+    } catch (e) {
+      print('Error verifying OTP: $e');
+      return false;
+    }
+  }
+
+  /// Sign in with phone number (legacy method - kept for compatibility)
   Future<UserCredential?> signInWithPhoneNumber({
     required String phoneNumber,
     required String verificationId,
@@ -370,5 +583,4 @@ class FirebaseService {
       return false;
     }
   }
-  */
 }

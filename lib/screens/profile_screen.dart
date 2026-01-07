@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 import 'edit_profile_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -14,6 +16,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isDarkMode = false;
   bool _notificationsEnabled = true;
   bool _isLoading = false;
+  
+  // Profile image
+  File? _profileImage;
   
   // Mock user data - replace with actual data from Firebase/backend
   final String _userName = 'Ahaz Fernando';
@@ -171,21 +176,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ],
                           ),
                           child: ClipOval(
-                            child: Container(
-                              color: Colors.grey.shade200,
-                              child: Icon(
-                                Icons.person,
-                                size: 40,
-                                color: Colors.grey.shade600,
-                              ),
-                            ),
+                            child: _profileImage != null
+                                ? Image.file(
+                                    _profileImage!,
+                                    fit: BoxFit.cover,
+                                  )
+                                : Container(
+                                    color: Colors.grey.shade200,
+                                    child: Icon(
+                                      Icons.person,
+                                      size: 40,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
                           ),
                         ),
                         Positioned(
                           bottom: 0,
                           right: 0,
                           child: GestureDetector(
-                            onTap: () => _showEditProfileDialog(),
+                            onTap: () => _showImagePickerOptions(),
                             child: Container(
                               width: 28,
                               height: 28,
@@ -1530,9 +1540,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             icon: Icons.camera_alt,
             title: 'Change Profile Picture',
             subtitle: 'Update your photo',
-            onTap: () {
-              // TODO: Implement profile picture change
-            },
+            onTap: () => _showImagePickerOptions(),
           ),
           _buildDivider(),
           _buildSettingsTile(
@@ -1766,36 +1774,111 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // ==========================
-  // EDIT PROFILE DIALOG
+  // IMAGE PICKER OPTIONS
   // ==========================
-  void _showEditProfileDialog() {
-    showDialog(
+  void _showImagePickerOptions() {
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          'Edit Profile',
-          style: GoogleFonts.instrumentSans(
-            fontWeight: FontWeight.bold,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
           ),
         ),
-        content: Text(
-          'Profile editing feature coming soon!',
-          style: GoogleFonts.instrumentSans(),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'OK',
-              style: GoogleFonts.instrumentSans(
-                color: const Color(0xFF00BF63),
-                fontWeight: FontWeight.w600,
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Text(
+                  'Change Profile Picture',
+                  style: GoogleFonts.instrumentSans(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
-            ),
+              ListTile(
+                leading: const Icon(Icons.photo_library, color: Color(0xFF00BF63)),
+                title: Text(
+                  'Choose from Gallery',
+                  style: GoogleFonts.instrumentSans(fontWeight: FontWeight.w500),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage(ImageSource.gallery);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.camera_alt, color: Color(0xFF00BF63)),
+                title: Text(
+                  'Take Photo',
+                  style: GoogleFonts.instrumentSans(fontWeight: FontWeight.w500),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage(ImageSource.camera);
+                },
+              ),
+              if (_profileImage != null)
+                ListTile(
+                  leading: const Icon(Icons.delete, color: Colors.red),
+                  title: Text(
+                    'Remove Photo',
+                    style: GoogleFonts.instrumentSans(
+                      fontWeight: FontWeight.w500,
+                      color: Colors.red,
+                    ),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    setState(() {
+                      _profileImage = null;
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Profile picture removed'),
+                        backgroundColor: const Color(0xFF00BF63),
+                      ),
+                    );
+                  },
+                ),
+              const SizedBox(height: 10),
+            ],
           ),
-        ],
+        ),
       ),
     );
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(source: source);
+      
+      if (image != null) {
+        setState(() {
+          _profileImage = File(image.path);
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Profile picture updated!'),
+            backgroundColor: const Color(0xFF00BF63),
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error picking image: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   // ==========================

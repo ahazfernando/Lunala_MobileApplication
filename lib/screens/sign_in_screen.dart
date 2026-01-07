@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'verification_screen.dart';
 import 'login_screen.dart';
+import '../services/firebase_service.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -15,6 +16,8 @@ class _SignInScreenState extends State<SignInScreen> {
   final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
+  final FirebaseService _firebaseService = FirebaseService();
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -287,29 +290,183 @@ class _SignInScreenState extends State<SignInScreen> {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const VerificationScreen()),
-          );
-        },
+        onPressed: _isLoading ? null : _handleSignUp,
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF00BF63),
           padding: const EdgeInsets.symmetric(vertical: 18),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
+          disabledBackgroundColor: Colors.grey,
         ),
-        child: Text(
-          "Verify",
-          style: GoogleFonts.instrumentSans(
-            fontSize: 16,
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        child: _isLoading
+            ? const SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : Text(
+                "Verify",
+                style: GoogleFonts.instrumentSans(
+                  fontSize: 16,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
       ),
     );
+  }
+
+  Future<void> _handleSignUp() async {
+    // Validate all fields
+    final firstName = _firstNameController.text.trim();
+    final lastName = _lastNameController.text.trim();
+    final email = _emailController.text.trim();
+    final phoneNumber = _phoneController.text.trim();
+
+    if (firstName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Please enter your first name',
+            style: GoogleFonts.instrumentSans(),
+          ),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    if (lastName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Please enter your last name',
+            style: GoogleFonts.instrumentSans(),
+          ),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    if (phoneNumber.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Please enter your phone number',
+            style: GoogleFonts.instrumentSans(),
+          ),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    // Format phone number with country code
+    final fullPhoneNumber = '+94$phoneNumber';
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Check if user already exists
+      final userExists = await _firebaseService.userExistsByPhoneNumber(fullPhoneNumber);
+
+      if (userExists) {
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'User already exists. Please login instead.',
+              style: GoogleFonts.instrumentSans(),
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+
+      // Create new user in Firebase
+      final userId = await _firebaseService.createUser(
+        phoneNumber: fullPhoneNumber,
+        firstName: firstName,
+        lastName: lastName,
+        email: email.isNotEmpty ? email : null,
+      );
+
+      if (userId != null) {
+        // Send OTP
+        final otpSent = await _firebaseService.sendOTP(fullPhoneNumber);
+
+        if (otpSent) {
+          // Navigate to verification screen with phone number
+          if (mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => VerificationScreen(phoneNumber: fullPhoneNumber, isLogin: false),
+              ),
+            );
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Account created but failed to send OTP. Please try again.',
+                  style: GoogleFonts.instrumentSans(),
+                ),
+                backgroundColor: Colors.orange,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Failed to create account. Please try again.',
+                style: GoogleFonts.instrumentSans(),
+              ),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'An error occurred. Please try again.',
+              style: GoogleFonts.instrumentSans(),
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   // ==========================

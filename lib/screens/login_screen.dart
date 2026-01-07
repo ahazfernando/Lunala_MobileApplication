@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'verification_screen.dart';
 import 'sign_in_screen.dart';
 import 'language_selection_screen.dart';
+import '../services/firebase_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -13,6 +14,8 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _phoneController = TextEditingController();
+  final FirebaseService _firebaseService = FirebaseService();
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -276,29 +279,129 @@ class _LoginScreenState extends State<LoginScreen> {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const VerificationScreen()),
-          );
-        },
+        onPressed: _isLoading ? null : _handleSendOTP,
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF00BF63),
           padding: const EdgeInsets.symmetric(vertical: 18),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
+          disabledBackgroundColor: Colors.grey,
         ),
-        child: Text(
-          "Send OTP",
-          style: GoogleFonts.instrumentSans(
-            fontSize: 16,
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        child: _isLoading
+            ? const SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : Text(
+                "Send OTP",
+                style: GoogleFonts.instrumentSans(
+                  fontSize: 16,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
       ),
     );
+  }
+
+  Future<void> _handleSendOTP() async {
+    // Validate phone number
+    final phoneNumber = _phoneController.text.trim();
+    
+    if (phoneNumber.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Please enter your phone number',
+            style: GoogleFonts.instrumentSans(),
+          ),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    // Format phone number with country code
+    final fullPhoneNumber = '+94$phoneNumber';
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Check if user exists in Firebase
+      final userExists = await _firebaseService.userExistsByPhoneNumber(fullPhoneNumber);
+
+      if (!userExists) {
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'User not found. Please sign up first.',
+              style: GoogleFonts.instrumentSans(),
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+
+      // Send OTP
+      final otpSent = await _firebaseService.sendOTP(fullPhoneNumber);
+
+      if (otpSent) {
+        // Navigate to verification screen with phone number
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => VerificationScreen(phoneNumber: fullPhoneNumber, isLogin: true),
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Failed to send OTP. Please try again.',
+                style: GoogleFonts.instrumentSans(),
+              ),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'An error occurred. Please try again.',
+              style: GoogleFonts.instrumentSans(),
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   // ==========================

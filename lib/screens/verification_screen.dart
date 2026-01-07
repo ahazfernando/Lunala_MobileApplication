@@ -1,9 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'home_screen.dart';
+import '../services/firebase_service.dart';
 
 class VerificationScreen extends StatefulWidget {
-  const VerificationScreen({super.key});
+  final String phoneNumber;
+  final bool isLogin;
+
+  const VerificationScreen({
+    super.key,
+    required this.phoneNumber,
+    required this.isLogin,
+  });
 
   @override
   State<VerificationScreen> createState() => _VerificationScreenState();
@@ -13,7 +21,9 @@ class _VerificationScreenState extends State<VerificationScreen> {
   final List<TextEditingController> _controllers =
       List.generate(4, (_) => TextEditingController());
   final List<FocusNode> _focusNodes = List.generate(4, (_) => FocusNode());
+  final FirebaseService _firebaseService = FirebaseService();
   int _resendTimer = 25;
+  bool _isVerifying = false;
 
   @override
   void initState() {
@@ -187,7 +197,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
           ),
           const SizedBox(height: 8),
             Text(
-              "Enter the Code sent to your Phone Number",
+              "Enter the Code sent to ${widget.phoneNumber}",
               style: GoogleFonts.instrumentSans(
                 fontSize: 16,
                 color: Colors.grey.shade600,
@@ -274,29 +284,109 @@ class _VerificationScreenState extends State<VerificationScreen> {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: () {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const HomeScreen()),
-          );
-        },
+        onPressed: _isVerifying ? null : _handleVerifyOTP,
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF00BF63),
           padding: const EdgeInsets.symmetric(vertical: 18),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
+          disabledBackgroundColor: Colors.grey,
         ),
-        child: Text(
-          'Verify',
-          style: GoogleFonts.instrumentSans(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        child: _isVerifying
+            ? const SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : Text(
+                'Verify',
+                style: GoogleFonts.instrumentSans(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
       ),
     );
+  }
+
+  Future<void> _handleVerifyOTP() async {
+    // Collect OTP from all 4 input fields
+    final enteredOTP = _controllers.map((controller) => controller.text).join();
+
+    // Validate OTP is complete
+    if (enteredOTP.length != 4) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Please enter the complete OTP',
+            style: GoogleFonts.instrumentSans(),
+          ),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isVerifying = true;
+    });
+
+    try {
+      // Verify OTP with Firebase
+      final isAuthenticated = await _firebaseService.verifyOTPAndAuthenticate(
+        phoneNumber: widget.phoneNumber,
+        otp: enteredOTP,
+      );
+
+      if (isAuthenticated) {
+        // Successfully authenticated - navigate to home screen
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
+          );
+        }
+      } else {
+        // Invalid OTP
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Invalid OTP. Please enter 1234',
+                style: GoogleFonts.instrumentSans(),
+              ),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'An error occurred. Please try again.',
+              style: GoogleFonts.instrumentSans(),
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isVerifying = false;
+        });
+      }
+    }
   }
 
 }

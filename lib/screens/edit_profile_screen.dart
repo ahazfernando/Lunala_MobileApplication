@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import '../services/firebase_service.dart';
+import 'login_screen.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -22,6 +24,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   String? _initialName;
   String? _initialEmail;
   String? _initialPhone;
+  final FirebaseService _firebaseService = FirebaseService();
   
   // Mock data - replace with actual user data from backend
   final String _lastPasswordChange = '2 months ago';
@@ -602,6 +605,44 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 24),
+          Divider(color: Colors.grey.shade200, height: 24),
+          // Logout
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.logout,
+                color: Colors.red,
+                size: 20,
+              ),
+            ),
+            title: Text(
+              'Logout',
+              style: GoogleFonts.instrumentSans(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.red,
+              ),
+            ),
+            subtitle: Text(
+              'Sign out of your account',
+              style: GoogleFonts.instrumentSans(
+                fontSize: 12,
+                color: Colors.grey.shade600,
+              ),
+            ),
+            trailing: const Icon(
+              Icons.chevron_right,
+              color: Colors.grey,
+            ),
+            onTap: _handleLogout,
+          ),
         ],
       ),
     );
@@ -826,6 +867,122 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             backgroundColor: Colors.red,
           ),
         );
+      }
+    }
+  }
+
+  // ==========================
+  // LOGOUT
+  // ==========================
+  Future<void> _handleLogout() async {
+    // Show confirmation dialog
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Text(
+          'Logout',
+          style: GoogleFonts.instrumentSans(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to logout?',
+          style: GoogleFonts.instrumentSans(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.instrumentSans(
+                color: Colors.grey,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(
+              'Logout',
+              style: GoogleFonts.instrumentSans(
+                color: Colors.red,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldLogout == true) {
+      try {
+        // Show loading indicator
+        if (mounted) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => Center(
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00BF63)),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Logging out...',
+                      style: GoogleFonts.instrumentSans(),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
+        // Sign out from Firebase
+        await _firebaseService.signOut();
+
+        // Close loading dialog
+        if (mounted) {
+          Navigator.pop(context);
+        }
+
+        // Navigate to login screen and clear navigation stack
+        if (mounted) {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => const LoginScreen()),
+            (route) => false,
+          );
+        }
+      } catch (e) {
+        // Close loading dialog if still open
+        if (mounted) {
+          Navigator.pop(context);
+        }
+
+        // Show error message
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Error logging out: $e',
+                style: GoogleFonts.instrumentSans(),
+              ),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
       }
     }
   }
