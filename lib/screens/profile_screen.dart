@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'edit_profile_screen.dart';
+import '../services/user_profile_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -15,46 +17,163 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   bool _isDarkMode = false;
   bool _notificationsEnabled = true;
-  bool _isLoading = false;
+  bool _isLoading = true;
   
   // Profile image
   File? _profileImage;
   
-  // Mock user data - replace with actual data from Firebase/backend
-  final String _userName = 'Ahaz Fernando';
-  final DateTime _memberSince = DateTime(2023, 1, 15);
+  // Firebase service
+  final UserProfileService _profileService = UserProfileService();
   
-  // Mock payment cards data
-  List<Map<String, dynamic>> _paymentCards = [
-    {
-      'id': 'card1',
-      'cardNumber': '2345',
-      'cardHolderName': 'Ahaz Fernando',
-      'expiryDate': '02/30',
-      'cardType': 'Visa',
-      'isDefault': true,
-    },
-    {
-      'id': 'card2',
-      'cardNumber': '6789',
-      'cardHolderName': 'Ahaz Fernando',
-      'expiryDate': '12/28',
-      'cardType': 'Mastercard',
-      'isDefault': false,
-    },
-  ];
+  // Customer data from Firebase
+  String _userName = 'User';
+  DateTime? _memberSince;
+  String? _firstName;
+  String? _lastName;
+  String? _email; // Used for passing to edit profile screen
+  String? _phoneNumber; // Used for passing to edit profile screen
   
-  // Mock loyalty data
-  final String _currentTier = 'Gold';
-  final int _loyaltyPoints = 12500;
-  final double _totalSavings = 48750.0;
-  final double _spentThisYear = 125000.0;
-  final double _nextTierThreshold = 150000.0;
+  // Payment cards data
+  List<Map<String, dynamic>> _paymentCards = [];
   
-  // Mock insights
-  final String _mostVisitedBranch = 'Keells Dehiwala';
-  final String _preferredShoppingDay = 'Saturday';
-  final String _preferredCategory = 'Fruits & Vegetables';
+  // Loyalty data
+  String _currentTier = 'Bronze';
+  int _loyaltyPoints = 0;
+  double _totalSavings = 0.0;
+  double _spentThisYear = 0.0;
+  double _nextTierThreshold = 50000.0;
+  
+  // Insights
+  String _mostVisitedBranch = 'N/A';
+  String _preferredShoppingDay = 'N/A';
+  String _preferredCategory = 'N/A';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCustomerData();
+  }
+
+  Future<void> _loadCustomerData() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      print('ProfileScreen: Loading customer data from users/{userId}...');
+      
+      // Use UserProfileService to get data from users/{userId} collection
+      final profileData = await _profileService.getUserProfile();
+      
+      print('ProfileScreen: Profile data retrieved: ${profileData != null ? "Found" : "Not found"}');
+      if (profileData != null) {
+        print('ProfileScreen: Profile data keys: ${profileData.keys}');
+      }
+      
+      if (profileData != null && mounted) {
+        // Extract customer information from users/{userId} document
+        _firstName = profileData['firstName'] as String?;
+        _lastName = profileData['lastName'] as String?;
+        _email = profileData['email'] as String?;
+        _phoneNumber = profileData['phoneNumber']?.toString();
+        
+        print('ProfileScreen: firstName: $_firstName, lastName: $_lastName, email: $_email, phoneNumber: $_phoneNumber');
+        
+        // Use firstName for display, fallback to lastName or other fields
+        if (_firstName != null && _firstName!.trim().isNotEmpty) {
+          _userName = _firstName!.trim(); // Display first name only
+          print('ProfileScreen: Using firstName: $_userName');
+        } else if (_lastName != null && _lastName!.trim().isNotEmpty) {
+          _userName = _lastName!.trim();
+          print('ProfileScreen: Using lastName: $_userName');
+        } else if (profileData['name'] != null) {
+          final name = profileData['name'].toString();
+          _userName = name.split(' ').first; // Use first part of name
+          print('ProfileScreen: Using name field: $_userName');
+        } else if (profileData['customerName'] != null) {
+          final name = profileData['customerName'].toString();
+          _userName = name.split(' ').first;
+          print('ProfileScreen: Using customerName field: $_userName');
+        } else if (profileData['fullName'] != null) {
+          final name = profileData['fullName'].toString();
+          _userName = name.split(' ').first;
+          print('ProfileScreen: Using fullName field: $_userName');
+        } else {
+          _userName = 'User';
+          print('ProfileScreen: No name found, using default "User"');
+        }
+        
+        print('ProfileScreen: Final userName: $_userName');
+          
+          // Get member since date
+          if (profileData['createdAt'] != null) {
+            final createdAt = profileData['createdAt'];
+            if (createdAt is Timestamp) {
+              _memberSince = createdAt.toDate();
+            } else if (createdAt is DateTime) {
+              _memberSince = createdAt;
+            }
+          }
+          if (_memberSince == null) {
+            _memberSince = DateTime.now(); // Default to today if not available
+          }
+          
+          // Get loyalty data if available
+          if (profileData['loyaltyTier'] != null) {
+            _currentTier = profileData['loyaltyTier'] as String;
+          }
+          if (profileData['loyaltyPoints'] != null) {
+            _loyaltyPoints = (profileData['loyaltyPoints'] is int)
+                ? profileData['loyaltyPoints'] as int
+                : (profileData['loyaltyPoints'] as num).toInt();
+          }
+          if (profileData['totalSavings'] != null) {
+            _totalSavings = (profileData['totalSavings'] is double)
+                ? profileData['totalSavings'] as double
+                : (profileData['totalSavings'] as num).toDouble();
+          }
+          if (profileData['spentThisYear'] != null) {
+            _spentThisYear = (profileData['spentThisYear'] is double)
+                ? profileData['spentThisYear'] as double
+                : (profileData['spentThisYear'] as num).toDouble();
+          }
+          
+          // Load payment cards if available
+          if (profileData['paymentCards'] != null) {
+            _paymentCards = List<Map<String, dynamic>>.from(profileData['paymentCards']);
+          } else {
+            // Initialize with empty list or default card if none exist
+            _paymentCards = [];
+          }
+          
+          // Get insights if available
+          if (profileData['mostVisitedBranch'] != null) {
+            _mostVisitedBranch = profileData['mostVisitedBranch'] as String;
+          }
+          if (profileData['preferredShoppingDay'] != null) {
+            _preferredShoppingDay = profileData['preferredShoppingDay'] as String;
+          }
+          if (profileData['preferredCategory'] != null) {
+            _preferredCategory = profileData['preferredCategory'] as String;
+          }
+        } else {
+          // No profile data found, use defaults
+          _userName = 'User';
+          _memberSince = DateTime.now();
+        }
+    } catch (e) {
+      print('Error loading customer data: $e');
+      // Use defaults on error
+      _userName = 'User';
+      _memberSince = DateTime.now();
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -237,13 +356,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 color: Colors.white.withOpacity(0.9),
                               ),
                               const SizedBox(width: 4),
-                              Text(
-                                'Member since ${memberSinceFormat.format(_memberSince)}',
-                                style: GoogleFonts.instrumentSans(
-                                  fontSize: 14,
-                                  color: Colors.white.withOpacity(0.9),
-                                ),
-                              ),
+                          Text(
+                            _memberSince != null
+                                ? 'Member since ${memberSinceFormat.format(_memberSince!)}'
+                                : 'Member',
+                            style: GoogleFonts.instrumentSans(
+                              fontSize: 14,
+                              color: Colors.white.withOpacity(0.9),
+                            ),
+                          ),
                             ],
                           ),
                           const SizedBox(height: 8),
@@ -1530,9 +1651,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const EditProfileScreen(),
+                    builder: (context) => EditProfileScreen(
+                      initialFirstName: _firstName,
+                      initialLastName: _lastName,
+                      initialEmail: _email,
+                      initialPhone: _phoneNumber,
+                    ),
                   ),
-                );
+                ).then((_) {
+                  // Reload customer data after editing
+                  _loadCustomerData();
+                });
               },
             ),
           _buildDivider(),

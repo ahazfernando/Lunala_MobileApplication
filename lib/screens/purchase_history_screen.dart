@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../models/order_model.dart';
-// import '../services/firebase_service.dart'; // TODO: Enable when Firebase is active
+import '../services/firebase_service.dart';
 import 'order_detail_screen.dart';
+import 'login_screen.dart';
 
 class PurchaseHistoryScreen extends StatefulWidget {
   const PurchaseHistoryScreen({super.key});
@@ -14,14 +15,15 @@ class PurchaseHistoryScreen extends StatefulWidget {
 
 class _PurchaseHistoryScreenState extends State<PurchaseHistoryScreen> {
   final TextEditingController _searchController = TextEditingController();
-  // final FirebaseService _firebaseService = FirebaseService(); // TODO: Enable when Firebase is active
+  final FirebaseService _firebaseService = FirebaseService();
   
   String _selectedDateFilter = 'All';
   String _selectedStatusFilter = 'All';
   String _searchQuery = '';
   bool _isLoading = true;
+  String? _errorMessage;
   
-  // Mock data for demonstration (replace with actual Firebase data)
+  // Real orders from Firebase
   List<Order> _allOrders = [];
   List<Order> _filteredOrders = [];
 
@@ -40,94 +42,73 @@ class _PurchaseHistoryScreenState extends State<PurchaseHistoryScreen> {
   Future<void> _loadOrders() async {
     setState(() {
       _isLoading = true;
+      _errorMessage = null;
     });
 
-    // TODO: Replace with actual Firebase call when enabled
-    // For now, using mock data
-    await Future.delayed(const Duration(milliseconds: 800));
-    
-    setState(() {
-      _allOrders = _getMockOrders();
-      _filteredOrders = _allOrders;
-      _isLoading = false;
-    });
+    try {
+      // First try to get customer ID directly (more reliable than phone number)
+      final customerId = await _firebaseService.getCurrentCustomerId();
+      print('=== Purchase History Debug ===');
+      print('Retrieved customer ID from SharedPreferences: ${customerId ?? "null"}');
+      
+      List<Map<String, dynamic>> ordersData = [];
+      
+      if (customerId != null && customerId.isNotEmpty) {
+        // Use customer ID directly to get orders (most reliable method)
+        print('Using customer ID to fetch orders: $customerId');
+        ordersData = await _firebaseService.getOrdersByCustomerId(customerId);
+        print('Purchase History: Retrieved ${ordersData.length} orders by customerId');
+      } else {
+        // Fallback: Try phone number
+        final phoneNumber = await _firebaseService.getCurrentUserPhoneNumber();
+        print('Customer ID not found, trying phone number: ${phoneNumber ?? "null"}');
+        
+        if (phoneNumber == null || phoneNumber.isEmpty) {
+          print('ERROR: Both customer ID and phone number are null or empty!');
+          print('This means the user did not complete login or data was not saved.');
+          setState(() {
+            _errorMessage = 'No user logged in. Please login to view your orders.';
+            _allOrders = [];
+            _filteredOrders = [];
+            _isLoading = false;
+          });
+          return;
+        }
+        
+        print('Phone number is valid, proceeding to fetch orders...');
+        ordersData = await _firebaseService.getOrdersByPhoneNumber(phoneNumber);
+        print('Purchase History: Retrieved ${ordersData.length} orders from Firebase');
+      }
+      
+      // Convert Firestore data to Order models
+      final orders = ordersData.map((data) {
+        try {
+          return Order.fromFirestore(data, data['id'] as String);
+        } catch (e) {
+          print('Error parsing order: $e');
+          print('Order data: $data');
+          return null;
+        }
+      }).whereType<Order>().toList();
+      
+      print('Purchase History: Successfully parsed ${orders.length} orders');
+      
+      setState(() {
+        _allOrders = orders;
+        _filteredOrders = orders;
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error loading orders: $e');
+      setState(() {
+        _errorMessage = 'Failed to load orders. Please try again.';
+        _allOrders = [];
+        _filteredOrders = [];
+        _isLoading = false;
+      });
+    }
   }
 
-  List<Order> _getMockOrders() {
-    final now = DateTime.now();
-    return [
-      Order(
-        id: 'ORD-001',
-        userId: 'user1',
-        items: [
-          OrderItem(
-            productId: 'prod1',
-            productName: 'Strawberry Salad with Berry',
-            quantity: 2,
-            price: 12.49,
-          ),
-          OrderItem(
-            productId: 'prod2',
-            productName: 'Nutella Crepes',
-            quantity: 1,
-            price: 8.49,
-          ),
-        ],
-        totalAmount: 33.47,
-        status: 'delivered',
-        deliveryAddress: 'No. 42, Galle Road, Dehiwala',
-        createdAt: now.subtract(const Duration(days: 2)),
-      ),
-      Order(
-        id: 'ORD-002',
-        userId: 'user1',
-        items: [
-          OrderItem(
-            productId: 'prod3',
-            productName: 'Mixed Fruit salad',
-            quantity: 3,
-            price: 8.49,
-          ),
-        ],
-        totalAmount: 25.47,
-        status: 'processing',
-        deliveryAddress: 'No. 42, Galle Road, Dehiwala',
-        createdAt: now.subtract(const Duration(days: 5)),
-      ),
-      Order(
-        id: 'ORD-003',
-        userId: 'user1',
-        items: [
-          OrderItem(
-            productId: 'prod4',
-            productName: 'New York Style Pizza',
-            quantity: 1,
-            price: 24.90,
-          ),
-        ],
-        totalAmount: 24.90,
-        status: 'delivered',
-        deliveryAddress: 'No. 42, Galle Road, Dehiwala',
-        createdAt: now.subtract(const Duration(days: 10)),
-      ),
-      Order(
-        id: 'ORD-004',
-        userId: 'user1',
-        items: [
-          OrderItem(
-            productId: 'prod5',
-            productName: 'French Fruit salad',
-            quantity: 2,
-            price: 12.49,
-          ),
-        ],
-        totalAmount: 24.98,
-        status: 'cancelled',
-        deliveryAddress: 'No. 42, Galle Road, Dehiwala',
-        createdAt: now.subtract(const Duration(days: 15)),
-      ),
-    ];
-  }
 
   void _applyFilters() {
     setState(() {
@@ -190,9 +171,11 @@ class _PurchaseHistoryScreenState extends State<PurchaseHistoryScreen> {
                             const SizedBox(height: 20),
                             _isLoading
                                 ? _buildLoadingState()
-                                : _filteredOrders.isEmpty
-                                    ? _buildEmptyState()
-                                    : _buildOrderList(),
+                                : _errorMessage != null
+                                    ? _buildErrorState()
+                                    : _filteredOrders.isEmpty
+                                        ? _buildEmptyState()
+                                        : _buildOrderList(),
                             const SizedBox(height: 20),
                           ],
                         ),
@@ -619,6 +602,7 @@ class _PurchaseHistoryScreenState extends State<PurchaseHistoryScreen> {
 
     switch (status.toLowerCase()) {
       case 'delivered':
+      case 'completed': // Handle "completed" status (same as delivered)
         backgroundColor = Colors.green.shade50;
         textColor = Colors.green.shade700;
         icon = Icons.check_circle;
@@ -634,6 +618,7 @@ class _PurchaseHistoryScreenState extends State<PurchaseHistoryScreen> {
         icon = Icons.pending;
         break;
       case 'cancelled':
+      case 'canceled': // Handle both spellings
         backgroundColor = Colors.red.shade50;
         textColor = Colors.red.shade700;
         icon = Icons.cancel;
@@ -750,6 +735,163 @@ class _PurchaseHistoryScreenState extends State<PurchaseHistoryScreen> {
           ),
         );
       }),
+    );
+  }
+
+  // ==========================
+  // ERROR STATE
+  // ==========================
+  Widget _buildErrorState() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 60),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 120,
+            height: 120,
+            decoration: BoxDecoration(
+              color: Colors.red.shade50,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.error_outline,
+              size: 64,
+              color: Colors.red.shade400,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Error Loading Orders',
+            style: GoogleFonts.instrumentSans(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey.shade700,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            _errorMessage ?? 'An error occurred while loading your orders.',
+            style: GoogleFonts.instrumentSans(
+              fontSize: 14,
+              color: Colors.grey.shade600,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 32),
+          if (_errorMessage?.contains('No user logged in') == true) ...[
+            // Show Login button if user is not logged in
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (context) => const LoginScreen()),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF00BF63),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Text(
+                  'Go to Login',
+                  style: GoogleFonts.instrumentSans(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            // Debug button to check SharedPreferences
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () async {
+                  // Test SharedPreferences
+                  final prefsWorking = await _firebaseService.testSharedPreferences();
+                  
+                  final phone = await _firebaseService.getCurrentUserPhoneNumber();
+                  final customerId = await _firebaseService.getCurrentCustomerId();
+                  
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'SharedPreferences Test: ${prefsWorking ? "WORKING" : "FAILED"}',
+                            style: GoogleFonts.instrumentSans(fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            'Phone: ${phone ?? "null"}',
+                            style: GoogleFonts.instrumentSans(),
+                          ),
+                          Text(
+                            'CustomerID: ${customerId ?? "null"}',
+                            style: GoogleFonts.instrumentSans(),
+                          ),
+                        ],
+                      ),
+                      duration: const Duration(seconds: 5),
+                    ),
+                  );
+                  // Try reloading
+                  _loadOrders();
+                },
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Text(
+                  'Debug: Test & Check Data',
+                  style: GoogleFonts.instrumentSans(
+                    color: Colors.grey.shade700,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () {
+                _loadOrders();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _errorMessage?.contains('No user logged in') == true
+                    ? Colors.grey.shade300
+                    : const Color(0xFF00BF63),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: Text(
+                'Retry',
+                style: GoogleFonts.instrumentSans(
+                  color: _errorMessage?.contains('No user logged in') == true
+                      ? Colors.grey.shade700
+                      : Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

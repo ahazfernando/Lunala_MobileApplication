@@ -3,10 +3,22 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../services/firebase_service.dart';
+import '../services/user_profile_service.dart';
 import 'login_screen.dart';
 
 class EditProfileScreen extends StatefulWidget {
-  const EditProfileScreen({super.key});
+  final String? initialFirstName;
+  final String? initialLastName;
+  final String? initialEmail;
+  final String? initialPhone;
+
+  const EditProfileScreen({
+    super.key,
+    this.initialFirstName,
+    this.initialLastName,
+    this.initialEmail,
+    this.initialPhone,
+  });
 
   @override
   State<EditProfileScreen> createState() => _EditProfileScreenState();
@@ -25,6 +37,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   String? _initialEmail;
   String? _initialPhone;
   final FirebaseService _firebaseService = FirebaseService();
+  final UserProfileService _profileService = UserProfileService();
   
   // Mock data - replace with actual user data from backend
   final String _lastPasswordChange = '2 months ago';
@@ -33,19 +46,98 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _loadUserData();
-    _setupListeners();
+    _loadUserData().then((_) {
+      _setupListeners();
+    });
   }
 
-  void _loadUserData() {
-    // TODO: Load actual user data from backend/Firebase
-    _nameController.text = 'Ahaz Fernando';
-    _emailController.text = 'ahaz.fernando@example.com';
-    _phoneController.text = '+94 77 123 4567';
+  Future<void> _loadUserData() async {
+    // Use provided initial values or load from Firebase users/{userId}
+    if (widget.initialFirstName != null || widget.initialLastName != null) {
+      final fullName = [
+        (widget.initialFirstName ?? ''),
+        (widget.initialLastName ?? '')
+      ].where((s) => s.isNotEmpty).join(' ').trim();
+      _nameController.text = fullName.isNotEmpty ? fullName : 'User';
+      
+      // Set email and phone if provided
+      if (widget.initialEmail != null) {
+        _emailController.text = widget.initialEmail!;
+      }
+      if (widget.initialPhone != null) {
+        _phoneController.text = widget.initialPhone!;
+      }
+    } else {
+      // Load from Firestore users/{userId} collection
+      try {
+        print('EditProfileScreen: Loading user profile from Firestore...');
+        
+        final profileData = await _profileService.getUserProfile();
+        
+        if (profileData != null && mounted) {
+          print('EditProfileScreen: Profile data retrieved: ${profileData.keys}');
+          
+          // Extract user data from users/{userId} document
+          final firstName = profileData['firstName'] as String? ?? '';
+          final lastName = profileData['lastName'] as String? ?? '';
+          final email = profileData['email'] as String? ?? '';
+          final phoneNumber = profileData['phoneNumber']?.toString() ?? '';
+          
+          print('EditProfileScreen: firstName: $firstName, lastName: $lastName, email: $email, phoneNumber: $phoneNumber');
+          
+          // Build full name
+          if (firstName.isNotEmpty || lastName.isNotEmpty) {
+            final fullName = [firstName, lastName]
+                .where((s) => s.isNotEmpty)
+                .join(' ')
+                .trim();
+            _nameController.text = fullName.isNotEmpty ? fullName : 'User';
+          } else if (profileData['name'] != null) {
+            _nameController.text = profileData['name'].toString();
+          } else {
+            _nameController.text = 'User';
+          }
+          
+          _emailController.text = email;
+          
+          // Format phone number for display
+          if (phoneNumber.isNotEmpty) {
+            final phoneDigits = phoneNumber.replaceAll(RegExp(r'[^\d]'), '');
+            if (phoneDigits.length >= 9) {
+              // Format as +94 XX XXX XXXX
+              if (phoneDigits.startsWith('94') && phoneDigits.length > 9) {
+                final localNumber = phoneDigits.substring(2);
+                _phoneController.text = '+94 $localNumber';
+              } else {
+                _phoneController.text = phoneNumber;
+              }
+            } else {
+              _phoneController.text = phoneNumber;
+            }
+          } else {
+            _phoneController.text = '';
+          }
+          
+          print('EditProfileScreen: Set name: ${_nameController.text}, email: ${_emailController.text}, phone: ${_phoneController.text}');
+        } else {
+          print('EditProfileScreen: Profile not found');
+          _nameController.text = 'User';
+        }
+      } catch (e) {
+        print('EditProfileScreen: Error loading user data: $e');
+        _nameController.text = 'User';
+      }
+    }
     
+    // Store initial values
     _initialName = _nameController.text;
     _initialEmail = _emailController.text;
     _initialPhone = _phoneController.text;
+    
+    // Final UI update
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   void _setupListeners() {
@@ -817,43 +909,75 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     });
 
     try {
-      // TODO: Implement actual save logic with backend
-      await Future.delayed(const Duration(seconds: 1));
+      // Parse name into firstName and lastName
+      final nameParts = _nameController.text.trim().split(' ');
+      final firstName = nameParts.isNotEmpty ? nameParts.first : '';
+      final lastName = nameParts.length > 1 
+          ? nameParts.sublist(1).join(' ') 
+          : '';
       
-      // Update initial values
-      _initialName = _nameController.text;
-      _initialEmail = _emailController.text;
-      _initialPhone = _phoneController.text;
+      // Get phone number (remove formatting)
+      final phoneNumber = _phoneController.text.trim().replaceAll(RegExp(r'[^\d+]'), '');
+      final cleanPhoneNumber = phoneNumber.startsWith('+') 
+          ? phoneNumber 
+          : '+94$phoneNumber';
       
-      setState(() {
-        _isLoading = false;
-        _hasChanges = false;
-      });
+      print('EditProfileScreen: Saving profile...');
+      print('firstName: $firstName, lastName: $lastName, email: ${_emailController.text}, phoneNumber: $cleanPhoneNumber');
+      
+      // Save to Firestore users/{userId}
+      final success = await _profileService.updateUserProfile(
+        firstName: firstName,
+        lastName: lastName,
+        email: _emailController.text.trim().isNotEmpty ? _emailController.text.trim() : null,
+        phoneNumber: cleanPhoneNumber,
+      );
+      
+      if (success) {
+        // Update initial values
+        _initialName = _nameController.text;
+        _initialEmail = _emailController.text;
+        _initialPhone = _phoneController.text;
+        
+        setState(() {
+          _isLoading = false;
+          _hasChanges = false;
+        });
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle, color: Colors.white),
-                const SizedBox(width: 12),
-                Text(
-                  'Profile updated successfully!',
-                  style: GoogleFonts.instrumentSans(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.white),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Profile updated successfully!',
+                    style: GoogleFonts.instrumentSans(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
+              backgroundColor: const Color(0xFF00BF63),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              duration: const Duration(seconds: 2),
             ),
-            backgroundColor: const Color(0xFF00BF63),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-            duration: const Duration(seconds: 2),
-          ),
-        );
+          );
+          
+          // Navigate back after a short delay
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) {
+              Navigator.pop(context, true); // Return true to indicate success
+            }
+          });
+        }
+      } else {
+        throw Exception('Failed to update profile in Firestore');
       }
     } catch (e) {
       setState(() {

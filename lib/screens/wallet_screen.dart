@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'payment_success_screen.dart';
 import 'home_screen.dart';
 import 'schedule_screen.dart';
+import '../services/firebase_service.dart';
 
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
@@ -20,6 +21,58 @@ class _WalletScreenState extends State<WalletScreen> {
   DateTime? _scheduledDate;
   String? _scheduledTimeSlot;
   String? _deliveryNote;
+  final FirebaseService _firebaseService = FirebaseService();
+  String _cardHolderName = 'Card Holder';
+  bool _isLoadingName = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCustomerName();
+  }
+
+  Future<void> _loadCustomerName() async {
+    try {
+      final phoneNumber = await _firebaseService.getCurrentUserPhoneNumber();
+      
+      if (phoneNumber != null) {
+        final fullPhoneNumber = phoneNumber.startsWith('+') 
+            ? phoneNumber 
+            : '+94$phoneNumber';
+        
+        final customerData = await _firebaseService.getUserByPhoneNumber(fullPhoneNumber);
+        
+        if (customerData != null && mounted) {
+          final firstName = customerData['firstName'] as String?;
+          final lastName = customerData['lastName'] as String?;
+          
+          if (firstName != null || lastName != null) {
+            final fullName = [(firstName ?? ''), (lastName ?? '')]
+                .where((s) => s.isNotEmpty)
+                .join(' ')
+                .trim();
+            if (fullName.isNotEmpty) {
+              setState(() {
+                _cardHolderName = fullName;
+              });
+            }
+          } else if (customerData['name'] != null) {
+            setState(() {
+              _cardHolderName = customerData['name'] as String;
+            });
+          }
+        }
+      }
+    } catch (e) {
+      print('Error loading customer name: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingName = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -342,7 +395,7 @@ class _WalletScreenState extends State<WalletScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Ahaz Fernando',
+                          _isLoadingName ? 'Card Holder' : _cardHolderName,
                           style: GoogleFonts.instrumentSans(
                             color: Colors.white,
                             fontSize: 16,

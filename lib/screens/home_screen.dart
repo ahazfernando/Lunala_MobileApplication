@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'checkout_screen.dart';
 import 'purchase_history_screen.dart';
 import 'profile_screen.dart';
+import '../services/user_profile_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -16,6 +17,76 @@ class _HomeScreenState extends State<HomeScreen> {
   String _selectedMealFilter = 'Salads';
   String _selectedCategoryFilter = 'Fruits';
   final TextEditingController _searchController = TextEditingController();
+  final UserProfileService _profileService = UserProfileService();
+  String _customerName = 'User';
+  bool _isLoadingName = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCustomerName();
+  }
+
+  Future<void> _loadCustomerName() async {
+    try {
+      print('HomeScreen: Loading customer first name from users/{userId}...');
+      
+      // Use UserProfileService to get data from users/{userId} collection
+      final profileData = await _profileService.getUserProfile();
+      
+      if (profileData != null && mounted) {
+        print('HomeScreen: Profile data retrieved: ${profileData.keys}');
+        
+        // Get firstName from users/{userId} document
+        final firstName = profileData['firstName'] as String?;
+        
+        if (firstName != null && firstName.trim().isNotEmpty) {
+          print('HomeScreen: Found firstName: $firstName');
+          setState(() {
+            _customerName = firstName.trim(); // Use first name for greeting
+          });
+        } else {
+          // Fallback: try other name fields
+          final lastName = profileData['lastName'] as String?;
+          if (lastName != null && lastName.trim().isNotEmpty) {
+            setState(() {
+              _customerName = lastName.trim();
+            });
+          } else if (profileData['name'] != null) {
+            final name = profileData['name'].toString();
+            setState(() {
+              _customerName = name.split(' ').first;
+            });
+          } else {
+            print('HomeScreen: No firstName found, using default "User"');
+            setState(() {
+              _customerName = 'User';
+            });
+          }
+        }
+      } else {
+        print('HomeScreen: Profile not found, using default "User"');
+        if (mounted) {
+          setState(() {
+            _customerName = 'User';
+          });
+        }
+      }
+    } catch (e) {
+      print('HomeScreen: Error loading customer name: $e');
+      if (mounted) {
+        setState(() {
+          _customerName = 'User';
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingName = false;
+        });
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -84,7 +155,9 @@ class _HomeScreenState extends State<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Hello, Ahaz!',
+                  _isLoadingName 
+                      ? 'Hello!' 
+                      : 'Hello, $_customerName!',
                   style: GoogleFonts.instrumentSans(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -925,255 +998,353 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildSearchScreen() {
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black87),
-          onPressed: () {
-            setState(() {
-              _currentIndex = 0;
-            });
-          },
-        ),
-        title: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF9FAFB),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: const Color(0xFFE5E7EB),
-              width: 1,
-            ),
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.search, color: const Color(0xFF090909), size: 20),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextField(
-                  controller: _searchController,
-                  autofocus: true,
-                  decoration: InputDecoration(
-                    hintText: 'Search for fruits, vegetables, dishes...',
-                    hintStyle: GoogleFonts.instrumentSans(
-                      fontSize: 14,
-                      color: const Color(0xFF090909).withOpacity(0.5),
-                    ),
-                    border: InputBorder.none,
-                    isDense: true,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                  style: GoogleFonts.instrumentSans(
-                    fontSize: 14,
-                    color: const Color(0xFF090909),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Quick Actions Section
-              _buildQuickActionsSection(),
-              const SizedBox(height: 24),
-              // Recent Searches (if any)
-              _buildRecentSearches(),
-              const SizedBox(height: 24),
-              // Search Results or Empty State
-              _buildSearchResults(),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildQuickActionsSection() {
-    return Container(
-      margin: const EdgeInsets.all(20),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF2F5BFF),
-            Color(0xFF1E3FCC),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF2F5BFF).withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Quick Actions',
-            style: GoogleFonts.inter(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Start typing to search for products...',
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              color: Colors.white.withOpacity(0.9),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRecentSearches() {
-    // Mock recent searches - replace with actual data
-    final recentSearches = ['Strawberry', 'Salad', 'Fruits'];
-    
-    if (recentSearches.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Recent Searches',
-            style: GoogleFonts.inter(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: recentSearches.map((search) {
-              return InkWell(
-                onTap: () {
-                  _searchController.text = search;
-                  // Trigger search
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: Colors.grey.shade200,
-                      width: 1,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.history,
-                        size: 16,
-                        color: Colors.grey.shade600,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        search,
-                        style: GoogleFonts.inter(
-                          fontSize: 14,
-                          color: Colors.black87,
+        child: Column(
+          children: [
+            // Search Bar
+            _buildSearchAppBar(),
+            // Content
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 20),
+                    // Large Header
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Text(
+                        'Browse',
+                        style: GoogleFonts.instrumentSans(
+                          fontSize: 48,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 32),
+                    // Category Sections
+                    _buildCategorySection(
+                      title: 'UPDATED CATEGORIES',
+                      categories: _getUpdatedCategories(),
+                    ),
+                    const SizedBox(height: 32),
+                    _buildCategorySection(
+                      title: 'Fresh Produce',
+                      categories: _getFreshProduceCategories(),
+                    ),
+                    const SizedBox(height: 32),
+                    _buildCategorySection(
+                      title: 'Popular Now',
+                      categories: _getPopularCategories(),
+                    ),
+                    const SizedBox(height: 32),
+                    _buildCategorySection(
+                      title: 'Special Offers',
+                      categories: _getSpecialOfferCategories(),
+                    ),
+                    const SizedBox(height: 100),
+                  ],
                 ),
-              );
-            }).toList(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchAppBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      color: Colors.white,
+      child: Row(
+        children: [
+          IconButton(
+            icon: Icon(Icons.arrow_back, color: Colors.grey.shade700),
+            onPressed: () {
+              setState(() {
+                _currentIndex = 0;
+              });
+            },
+          ),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF9FAFB),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xFFE5E7EB),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.search, color: const Color(0xFF090909), size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: _searchController,
+                      autofocus: false,
+                      style: GoogleFonts.instrumentSans(
+                        fontSize: 16,
+                        color: Colors.black,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'Search for products...',
+                        hintStyle: GoogleFonts.instrumentSans(
+                          fontSize: 16,
+                          color: const Color(0xFF090909).withOpacity(0.5),
+                        ),
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSearchResults() {
-    final hasSearchQuery = _searchController.text.isNotEmpty;
-    
-    if (!hasSearchQuery) {
-      return Padding(
-        padding: const EdgeInsets.all(20),
-        child: Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-              Icon(
-                Icons.search_outlined,
-                size: 64,
-                color: Colors.grey.shade400,
-              ),
-          const SizedBox(height: 16),
-          Text(
-                'Start searching...',
-                style: GoogleFonts.inter(
-                  fontSize: 18,
+  Widget _buildCategorySection({
+    required String title,
+    required List<Map<String, dynamic>> categories,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                title,
+                style: GoogleFonts.instrumentSans(
+                  fontSize: 13,
                   fontWeight: FontWeight.w600,
                   color: Colors.grey.shade600,
+                  letterSpacing: 0.5,
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Search for products, or use quick actions above',
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  color: Colors.grey.shade500,
-                ),
-                textAlign: TextAlign.center,
+              Icon(
+                Icons.chevron_right,
+                color: Colors.grey.shade600,
+                size: 20,
               ),
             ],
           ),
         ),
-      );
-    }
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 200,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            itemCount: categories.length,
+            itemBuilder: (context, index) {
+              final category = categories[index];
+              return _buildCategoryCard(category);
+            },
+          ),
+        ),
+      ],
+    );
+  }
 
-    // TODO: Implement actual search results
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Search Results',
-            style: GoogleFonts.inter(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
+  Widget _buildCategoryCard(Map<String, dynamic> category) {
+    return GestureDetector(
+      onTap: () {
+        // Handle category tap
+        _searchController.text = category['name'] as String;
+      },
+      child: Container(
+        width: 160,
+        margin: const EdgeInsets.only(right: 12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: category['colors'] as List<Color>,
           ),
-          const SizedBox(height: 16),
-          Text(
-            'No results found for "${_searchController.text}"',
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              color: Colors.grey.shade600,
+          boxShadow: [
+            BoxShadow(
+              color: (category['colors'] as List<Color>)[0].withOpacity(0.3),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
             ),
-          ),
-        ],
+          ],
+        ),
+        child: Stack(
+          children: [
+            // Background Pattern
+            Positioned(
+              right: -20,
+              top: -20,
+              child: Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withOpacity(0.1),
+                ),
+              ),
+            ),
+            // Content
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Category Icon/Image
+                  if (category['icon'] != null)
+                    Icon(
+                      category['icon'] as IconData,
+                      size: 40,
+                      color: Colors.white,
+                    )
+                  else if (category['image'] != null)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.asset(
+                        category['image'] as String,
+                        width: 50,
+                        height: 50,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  const Spacer(),
+                  // Category Name
+                  Text(
+                    category['name'] as String,
+                    style: GoogleFonts.instrumentSans(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  // Subtitle
+                  if (category['subtitle'] != null)
+                    Text(
+                      category['subtitle'] as String,
+                      style: GoogleFonts.instrumentSans(
+                        fontSize: 12,
+                        color: Colors.white.withOpacity(0.8),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
+
+  List<Map<String, dynamic>> _getUpdatedCategories() {
+    return [
+      {
+        'name': 'Fresh Fruits',
+        'subtitle': 'Apple Music Groceries',
+        'colors': [const Color(0xFFFF6B6B), const Color(0xFFEE5A6F)],
+        'icon': Icons.apple,
+      },
+      {
+        'name': 'Vegetables',
+        'subtitle': 'Fresh & Organic',
+        'colors': [const Color(0xFF4ECDC4), const Color(0xFF44A08D)],
+        'icon': Icons.eco,
+      },
+      {
+        'name': 'Dairy Products',
+        'subtitle': 'Farm Fresh',
+        'colors': [const Color(0xFFFFE66D), const Color(0xFFFFD93D)],
+        'icon': Icons.local_drink,
+      },
+    ];
+  }
+
+  List<Map<String, dynamic>> _getFreshProduceCategories() {
+    return [
+      {
+        'name': 'Organic Greens',
+        'subtitle': 'Farm to Table',
+        'colors': [const Color(0xFF95E1D3), const Color(0xFF6BCFB8)],
+        'icon': Icons.agriculture,
+      },
+      {
+        'name': 'Tropical Fruits',
+        'subtitle': 'Exotic Selection',
+        'colors': [const Color(0xFFFF8A80), const Color(0xFFFF5722)],
+        'icon': Icons.wb_sunny,
+      },
+      {
+        'name': 'Root Vegetables',
+        'subtitle': 'Fresh Harvest',
+        'colors': [const Color(0xFFBA68C8), const Color(0xFF9C27B0)],
+        'icon': Icons.terrain,
+      },
+    ];
+  }
+
+  List<Map<String, dynamic>> _getPopularCategories() {
+    return [
+      {
+        'name': 'Meat & Seafood',
+        'subtitle': 'Premium Quality',
+        'colors': [const Color(0xFFFF6B9D), const Color(0xFFC44569)],
+        'icon': Icons.set_meal,
+      },
+      {
+        'name': 'Bakery Items',
+        'subtitle': 'Fresh Daily',
+        'colors': [const Color(0xFFFFD89B), const Color(0xFFFF9500)],
+        'icon': Icons.cake,
+      },
+      {
+        'name': 'Beverages',
+        'subtitle': 'Cool & Refreshing',
+        'colors': [const Color(0xFF74B9FF), const Color(0xFF0984E3)],
+        'icon': Icons.local_bar,
+      },
+    ];
+  }
+
+  List<Map<String, dynamic>> _getSpecialOfferCategories() {
+    return [
+      {
+        'name': 'Flash Sale',
+        'subtitle': 'Limited Time',
+        'colors': [const Color(0xFFFF6B6B), const Color(0xFFC92A2A)],
+        'icon': Icons.flash_on,
+      },
+      {
+        'name': 'Buy 1 Get 1',
+        'subtitle': 'Special Deals',
+        'colors': [const Color(0xFF00B894), const Color(0xFF00A085)],
+        'icon': Icons.card_giftcard,
+      },
+      {
+        'name': 'New Arrivals',
+        'subtitle': 'Just In',
+        'colors': [const Color(0xFFA29BFE), const Color(0xFF6C5CE7)],
+        'icon': Icons.new_releases,
+      },
+    ];
+  }
+
 
   Widget _buildHistoryScreen() {
     return const PurchaseHistoryScreen();

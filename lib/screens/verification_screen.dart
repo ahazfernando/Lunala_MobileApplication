@@ -345,7 +345,65 @@ class _VerificationScreenState extends State<VerificationScreen> {
       );
 
       if (isAuthenticated) {
+        // Test SharedPreferences first
+        print('=== VERIFICATION: Testing SharedPreferences ===');
+        final prefsWorking = await _firebaseService.testSharedPreferences();
+        print('SharedPreferences working: $prefsWorking');
+        
+        if (!prefsWorking) {
+          print('WARNING: SharedPreferences test failed!');
+        }
+        
+        // Save phone number to SharedPreferences for future use
+        print('=== VERIFICATION: Starting save process ===');
+        print('Verification: Phone number to save: ${widget.phoneNumber}');
+        
+        // Save phone number
+        final saveSuccess = await _firebaseService.saveCurrentUserPhoneNumber(widget.phoneNumber);
+        print('Verification: Save result: $saveSuccess');
+        
+        // Wait a bit to ensure SharedPreferences is written
+        await Future.delayed(const Duration(milliseconds: 300));
+        
+        // Verify it was saved correctly - try multiple times
+        String? savedPhone;
+        String? savedCustomerId;
+        for (int i = 0; i < 3; i++) {
+          savedPhone = await _firebaseService.getCurrentUserPhoneNumber();
+          savedCustomerId = await _firebaseService.getCurrentCustomerId();
+          print('Verification: Attempt ${i + 1} - Phone: $savedPhone, CustomerID: $savedCustomerId');
+          
+          if (savedPhone != null || savedCustomerId != null) {
+            break;
+          }
+          
+          if (i < 2) {
+            await Future.delayed(const Duration(milliseconds: 200));
+          }
+        }
+        
+        if (savedPhone == null && savedCustomerId == null) {
+          print('ERROR: Both phone and customer ID are null after save!');
+          print('This indicates SharedPreferences is not working properly.');
+          
+          // Show error to user but still allow navigation
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Warning: Could not save login session. History may not work.',
+                  style: GoogleFonts.instrumentSans(),
+                ),
+                backgroundColor: Colors.orange,
+                behavior: SnackBarBehavior.floating,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          }
+        }
+        
         // Successfully authenticated - navigate to home screen
+        // Navigate even if save failed (user can still use the app)
         if (mounted) {
           Navigator.pushReplacement(
             context,

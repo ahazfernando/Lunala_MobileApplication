@@ -249,7 +249,7 @@ class OrderDetailScreen extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(color: Colors.grey.shade200),
       ),
       child: Row(
@@ -260,7 +260,7 @@ class OrderDetailScreen extends StatelessWidget {
             height: 60,
             decoration: BoxDecoration(
               color: const Color(0xFF00BF63).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(16),
             ),
             child: Icon(
               Icons.shopping_bag,
